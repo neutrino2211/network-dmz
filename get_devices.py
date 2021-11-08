@@ -39,7 +39,7 @@ def devices_on_ifaces():
 
 
     for network, netmask, _, interface, address, _ in scapy.config.conf.route.routes:
-
+        
         # skip loopback network and default gw
         if network == 0 or interface == 'lo' or address == '127.0.0.1' or address == '0.0.0.0':
             continue
@@ -52,7 +52,12 @@ def devices_on_ifaces():
         if net == None:
             continue
 
-        res.append((net, arp_scan(net)))
+        devices =  arp_scan(net)
+
+        if len(devices) == 0:
+            continue
+
+        res.append((net, devices))
 
     return res
 
