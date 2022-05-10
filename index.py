@@ -1,3 +1,5 @@
+from sre_parse import Verbose
+from tabnanny import verbose
 import scapy.all as scapy
 import time
 import threading
@@ -41,8 +43,13 @@ class NetworkDMZ():
             dst_mac = self.mac_cache[target_ip]
         else:
             dst_mac = self.get_mac(target_ip)
+        
         if dst_mac == None:
+            dst_mac = '00:00:00:00:de:ad'
+            print("No mac")
+            self.mac_cache[target_ip] = dst_mac
             return
+        print(target_ip, dst_mac, spoof_ip)
         packet = scapy.ARP(op = 2, pdst = target_ip, hwdst = dst_mac, psrc = spoof_ip)
         scapy.send(packet, verbose = False)
     
@@ -86,11 +93,13 @@ def _device_scan(sleep = 60):
 
         print("Updating devices list")
 
-        for _, devices in devices_on_ifaces():
+        for subnet, devices in devices_on_ifaces():
+            if len(sys.argv) > 2 and subnet != sys.argv[2]:
+                print("skipping:", subnet)
+                continue 
             for dmz in dmzs:
-
                 if dmz._gateway_ip == devices[0][0]:
-                    dmz.cache_macaddresses(devices[1:])
+                    dmz.cache_macaddresses(devices)
                     ips = [x for x, _ in devices[1:]]
                     dmz._target_ips = ips
 
@@ -102,6 +111,7 @@ for _, devices in devices_on_ifaces():
     dmz.cache_macaddresses(devices[1:])
     ips = [x for x, _ in devices[1:]]
     dmz.start(ips, sleep=float(sys.argv[1]) if len(sys.argv) > 1 else 2)
+    print(dmz.mac_cache)
     print("Started DMZ on network with gateway", dmz._gateway_ip)
     dmzs.append(dmz)
   

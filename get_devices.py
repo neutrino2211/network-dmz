@@ -1,3 +1,4 @@
+from tabnanny import verbose
 import scapy.config
 import scapy.layers.l2
 import scapy.route
@@ -22,7 +23,7 @@ def to_CIDR_notation(bytes_network, bytes_netmask):
 def arp_scan(ip):
     request = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=ip)
 
-    ans, _ = srp(request, timeout=2, retry=1)
+    ans, _ = srp(request, timeout=2, retry=1, verbose = False)
     result = []
 
     for _, received in ans:
@@ -30,11 +31,22 @@ def arp_scan(ip):
 
     return result
 
+def get_mac(ip):
+    arp_request = ARP(pdst = ip)
+    broadcast = Ether(dst ="ff:ff:ff:ff:ff:ff")
+    arp_request_broadcast = broadcast / arp_request
+    answered_list = srp(arp_request_broadcast, timeout = 5, verbose = False)[0]
+
+    if len(answered_list) == 0:
+        print("No answer for", ip)
+        return None
+
+    return answered_list[0][1].hwsrc
+
 def devices_on_ifaces():
     # if os.geteuid() != 0:
     #     print('You need to be root to run this script', file=sys.stderr)
     #     sys.exit(1)
-
     res = []
 
 
@@ -52,7 +64,13 @@ def devices_on_ifaces():
         if net == None:
             continue
 
-        devices =  arp_scan(net)
+        print(scapy.config.conf.route.route())
+
+        route = scapy.config.conf.route.route("0.0.0.0")
+
+        devices = [[route[2], get_mac(route[2])]]
+
+        devices.extend(arp_scan(net))
 
         if len(devices) == 0:
             continue
